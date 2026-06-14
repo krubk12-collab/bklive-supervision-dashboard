@@ -647,13 +647,14 @@
             };
         }
         // วาง HTML ลงกล่องความกว้างคงที่ 794px (เท่าหน้า A4 @96dpi) ให้ html2canvas เรนเดอร์นิ่งทุกขนาดจอ
-        // ⚠️ ต้องวาง "ในจอจริง" (ไม่ใช่ left:-9999) ไม่งั้น html2canvas จับได้หน้าว่าง — ซ่อนใต้ม่านโหลด (z-50) แทน
+        // ⚠️⚠️ ห้ามใช้ position:absolute/fixed หรือ left:-9999! html2canvas จะคิดความสูง = 0 → PDF ขาวทั้งหน้า
+        //      ต้องวางแบบ normal flow (ยืนยันด้วย puppeteer แล้ว) — ซ่อนจากตาผู้ใช้ด้วยม่านโหลด (fixed inset-0 z-50)
         function makePrintHolder(html) {
             const d = document.createElement('div');
-            d.style.cssText = 'position:absolute;left:0;top:0;z-index:1;width:794px;background:#fff;box-sizing:border-box;';
+            d.style.cssText = 'width:794px;background:#fff;box-sizing:border-box;';
             d.innerHTML = html;
             document.body.appendChild(d);
-            window.scrollTo(0, 0); // ให้กล่อง (absolute top:0) อยู่ตรงจุดที่ html2canvas เริ่มจับ
+            window.scrollTo(0, 0); // เลื่อนขึ้นบนสุดให้ม่านโหลด (fixed) บังกล่องไว้
             return d;
         }
         function qualityOf(avg) {
