@@ -828,6 +828,9 @@ async function downloadAllPDF() {
             });
             return html;
         }
+
+        // 🚀 โหลดข้อมูลอัตโนมัติเมื่อเปิดหน้าเว็บ (แก้ปัญหา loader หมุนค้าง)
+        window.addEventListener('DOMContentLoaded', fetchData);
     </script>
 </body>
 </html>
