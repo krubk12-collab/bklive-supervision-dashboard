@@ -6,8 +6,9 @@
     <title>Dashboard วิเคราะห์ผลการนิเทศรายบุคคล (PACAKIDs Model)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 🌟 เพิ่มไลบรารี html2pdf สำหรับสร้างไฟล์ PDF โดยไม่โดน Google Sites บล็อก 🌟 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- 🌟 jsPDF + html2canvas แยก (เรนเดอร์ PDF ทีละหน้า — คุม margin เอง ไม่ตกขอบ + ไม่ชนเพดานความสูง canvas) 🌟 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
@@ -635,16 +636,30 @@
         }
         function hidePdfLoader() { document.getElementById('full-page-loader').classList.add('hidden'); }
 
-        // ตัวเลือก html2pdf: A4 + กันหั่นกลางบล็อก (avoid) เพื่อไม่ให้ข้อความ/กราฟล้นข้ามหน้า
-        function pdfOpt(filename) {
-            return {
-                margin:      [10, 10, 12, 10],
-                filename:    filename,
-                image:       { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
-                jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:   { mode: ['css', 'legacy'], avoid: ['tr', 'img', '.avoid-break'] }
-            };
+        // เรนเดอร์การ์ดแต่ละใบเป็น canvas ของตัวเอง แล้วใส่ลง PDF (1 ใบ = ขึ้นหน้าใหม่; ใบที่ยาวเกิน 1 หน้าจะถูกตัดให้ไหลหลายหน้า)
+        // ⚡ ข้อดี: คุมความกว้างภาพ = พื้นที่ใช้งานเป๊ะ (ไม่ตกขอบ) + แต่ละ canvas เล็ก (ไม่ชนเพดานความสูง canvas → ไม่ขาว)
+        async function renderCardsToPDF(cards, filename) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+            const pageW = 210, pageH = 297, margin = 10, usableW = pageW - margin * 2, usableH = pageH - margin * 2;
+            for (let i = 0; i < cards.length; i++) {
+                const holder = makePrintHolder(cards[i]);
+                await new Promise(r => requestAnimationFrame(r)); // รอ paint ก่อนจับภาพ
+                const canvas = await html2canvas(holder, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                holder.remove();
+                const pageCanvasH = canvas.width * usableH / usableW; // ความสูง canvas ที่พอดี 1 หน้า
+                let remaining = canvas.height, pos = 0, firstSlice = true;
+                while (remaining > 0) {
+                    if (!(i === 0 && firstSlice)) pdf.addPage();
+                    const sliceH = Math.min(pageCanvasH, remaining);
+                    const pc = document.createElement('canvas');
+                    pc.width = canvas.width; pc.height = Math.ceil(sliceH);
+                    pc.getContext('2d').drawImage(canvas, 0, pos, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+                    pdf.addImage(pc.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, usableW, sliceH * usableW / canvas.width);
+                    remaining -= sliceH; pos += sliceH; firstSlice = false;
+                }
+            }
+            pdf.save(filename);
         }
         // วาง HTML ลงกล่องความกว้างคงที่ 794px (เท่าหน้า A4 @96dpi) ให้ html2canvas เรนเดอร์นิ่งทุกขนาดจอ
         // ⚠️⚠️ ห้ามใช้ position:absolute/fixed หรือ left:-9999! html2canvas จะคิดความสูง = 0 → PDF ขาวทั้งหน้า
@@ -809,10 +824,8 @@
                 const teacherVal = document.getElementById('teacherSelect').value;
                 const radarImg = radarChartObj ? radarChartObj.toBase64Image('image/png', 1) : '';
                 const html = buildSingleReportHTML(teacherVal, radarImg);
-                const holder = makePrintHolder(html);
                 const who = teacherVal === 'all' ? 'ภาพรวมโรงเรียน' : document.getElementById('profile-name').innerText;
-                await html2pdf().set(pdfOpt(`รายงานนิเทศ_${who}.pdf`)).from(holder).save();
-                holder.remove();
+                await renderCardsToPDF([html], `รายงานนิเทศ_${who}.pdf`);
             } catch (e) {
                 alert('สร้าง PDF ไม่สำเร็จ: ' + e.message);
             } finally {
@@ -821,14 +834,23 @@
         }
 
 // 🌟 ดาวน์โหลด PDF รวมครูทุกคน (คนละ 1 หน้า) — สร้างฝั่ง browser ไม่พึ่ง GAS, ไม่มีป๊อปอัพให้โดนบล็อก 🌟
+// สร้างการ์ดรายงานต่อครู 1 คน เป็น array (ครูที่ถูกนิเทศอย่างน้อย 1 ครั้งตามตัวกรอง)
+function allTeacherCards() {
+    const teachers = allTeachers.filter(t => t.first_name && t.first_name !== 'first_name' &&
+        filteredEvals.some(e => e.evaluateeName && (e.evaluateeName.includes(t.first_name) || e.evaluateeName.includes(t.last_name))));
+    return teachers.map(t => {
+        const tEvals = filteredEvals.filter(e => e.evaluateeName && (e.evaluateeName.includes(t.first_name) || e.evaluateeName.includes(t.last_name)));
+        return `<div style="padding:24px 22px;box-sizing:border-box;color:#1f2937;font-family:'Sarabun',sans-serif;">${pdfHeader('เอกสารรายงานสรุปผลการนิเทศการสอนรายบุคคล')}${buildTeacherCardHTML(t, tEvals, '')}</div>`;
+    });
+}
+
 async function downloadAllPDF() {
-    showPdfLoader('กำลังจัดทำเอกสารรายงานของครูทุกคน อาจใช้เวลาสักครู่');
+    showPdfLoader('กำลังจัดทำเอกสารรายงานของครูทุกคน (คนละ 1 หน้า) อาจใช้เวลาสักครู่');
     try {
         await new Promise(r => setTimeout(r, 50));
-        const html = generateAllPagesHTML();
-        const holder = makePrintHolder(html);
-        await html2pdf().set(pdfOpt('รายงานนิเทศ_รวมทุกคน.pdf')).from(holder).save();
-        holder.remove();
+        const cards = allTeacherCards();
+        if (!cards.length) { alert('ไม่มีข้อมูลการนิเทศตามตัวกรองที่เลือก'); return; }
+        await renderCardsToPDF(cards, 'รายงานนิเทศ_รวมทุกคน.pdf');
     } catch (e) {
         alert('สร้าง PDF ไม่สำเร็จ: ' + e.message);
     } finally {
