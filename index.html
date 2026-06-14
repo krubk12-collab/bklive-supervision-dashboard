@@ -47,7 +47,7 @@
             
             <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto flex-wrap justify-end">
                 <select id="yearSelect" onchange="handleLocalFilterChange(onYearTermChange)" class="bg-blue-50 border border-blue-300 text-blue-800 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-auto p-2.5 outline-none font-bold cursor-pointer shadow-sm">
-                    <option value="2569">ปีการศึกษา 2569</option>
+                    <option value="all">ทุกปีการศึกษา</option>
                 </select>
                 <select id="termSelect" onchange="handleLocalFilterChange(onYearTermChange)" class="bg-blue-50 border border-blue-300 text-blue-800 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-auto p-2.5 outline-none font-bold cursor-pointer shadow-sm">
                     <option value="all">ทุกภาคเรียน</option>
@@ -225,7 +225,7 @@
         let trendChartObj = null;
 
         let currentAssessorFilter = 'all';
-        let currentYear = '2569';   // ปีการศึกษาที่เลือก (default ปีปัจจุบัน)
+        let currentYear = 'all';    // ปีการศึกษาที่เลือก (default ทุกปี — โชว์รวมเหมือนเดิม แล้วคลิกเลือกปีได้)
         let currentTerm = 'all';    // ภาคเรียนที่เลือก ('all'/'1'/'2')
 
         // 🌟 ดึงข้อมูลครั้งแรกเมื่อโหลดหน้าเว็บ
