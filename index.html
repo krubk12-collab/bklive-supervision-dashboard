@@ -641,17 +641,19 @@
                 margin:      [10, 10, 12, 10],
                 filename:    filename,
                 image:       { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
                 jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak:   { mode: ['css', 'legacy'], avoid: ['tr', 'img', '.avoid-break'] }
             };
         }
-        // วาง HTML ลงกล่องนอกจอ ความกว้างคงที่ 794px (เท่าหน้า A4 @96dpi) ให้ html2canvas เรนเดอร์นิ่งทุกขนาดจอ
+        // วาง HTML ลงกล่องความกว้างคงที่ 794px (เท่าหน้า A4 @96dpi) ให้ html2canvas เรนเดอร์นิ่งทุกขนาดจอ
+        // ⚠️ ต้องวาง "ในจอจริง" (ไม่ใช่ left:-9999) ไม่งั้น html2canvas จับได้หน้าว่าง — ซ่อนใต้ม่านโหลด (z-50) แทน
         function makePrintHolder(html) {
             const d = document.createElement('div');
-            d.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;box-sizing:border-box;';
+            d.style.cssText = 'position:absolute;left:0;top:0;z-index:1;width:794px;background:#fff;box-sizing:border-box;';
             d.innerHTML = html;
             document.body.appendChild(d);
+            window.scrollTo(0, 0); // ให้กล่อง (absolute top:0) อยู่ตรงจุดที่ html2canvas เริ่มจับ
             return d;
         }
         function qualityOf(avg) {
