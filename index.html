@@ -237,14 +237,14 @@
             document.getElementById('loader-subtext').innerText = 'กรุณารอสักครู่ ระบบกำลังดึงสารสนเทศล่าสุดจากฐานข้อมูล';
             
             try {
-                let result = null;
+                let result = null, usedCDN = false;
                 // ⚡ ลอง CDN ก่อน (เร็ว ~0.15s) — ไม่ได้ค่อย fallback ไป GAS (~5s)
                 try {
                     const cdnRes = await fetch(SUPERVISION_CDN, { cache: 'no-cache' });
                     if (cdnRes.ok) {
                         const cd = await cdnRes.json();
                         // ใช้ CDN เฉพาะเมื่อมีฟิลด์ year แล้ว (snapshot เก่ายังไม่มี → ใช้ GAS สดแทน เพื่อให้กรองปีได้)
-                        if (cd && cd.status === 'success' && cd.evalData && cd.evalData[0] && ('year' in cd.evalData[0])) result = cd;
+                        if (cd && cd.status === 'success' && cd.evalData && cd.evalData[0] && ('year' in cd.evalData[0])) { result = cd; usedCDN = true; }
                     }
                 } catch(e) {}
                 if (!result) {
@@ -259,11 +259,14 @@
                     populateTeacherDropdown();
                     populateYearDropdown();
                     setAssessorFilter(currentAssessorFilter); // กรองปี/เทอม + ผู้นิเทศ → คำนวณ + เรนเดอร์
-                    
+
                     setTimeout(() => {
                         document.getElementById('full-page-loader').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('opacity-0');
                     }, 500);
+
+                    // 🔄 โชว์ CDN เร็วก่อนแล้วเทียบข้อมูลสดจาก GAS ทันที — ครูเพิ่งกรอกฟอร์มจะเห็นใน ~3-5 วิ (ไม่ต้องรอ CDN/Pages 10 นาที)
+                    if (usedCDN) reconcileLive();
                 } else {
                      document.getElementById('full-page-loader').innerHTML = '<i class="fa-solid fa-triangle-exclamation text-6xl text-red-500 mb-6"></i><h2 class="text-2xl font-bold text-gray-800">ไม่มีข้อมูล</h2>';
                 }
@@ -271,6 +274,35 @@
                 console.error('Error fetching data:', error);
                 document.getElementById('full-page-loader').innerHTML = '<i class="fa-solid fa-wifi text-6xl text-red-500 mb-6"></i><h2 class="text-2xl font-bold text-gray-800">เชื่อมต่อล้มเหลว</h2><p class="text-gray-500 mt-2">กรุณารีเฟรชหน้าเว็บใหม่อีกครั้ง</p>';
             }
+        }
+
+        // 🔄 ดึงข้อมูลสดจาก GAS เงียบๆ หลังโชว์ CDN — ถ้ามีแถวใหม่กว่า (CDN ยังไม่อัปเดต) อัปเดตให้ทันที โดยคงตัวกรองที่ผู้ใช้เลือกไว้
+        async function reconcileLive() {
+            try {
+                const res = await fetch(WEB_APP_URL, { cache: 'no-store' });
+                const live = await res.json();
+                if (live.status !== 'success' || !Array.isArray(live.evalData)) return;
+                if (live.evalData.length === allEvals.length) return; // ไม่มีอะไรใหม่ → ไม่ต้องรีเฟรช (กันกระพริบ)
+
+                // จำตัวเลือกปัจจุบันไว้
+                const tSel = document.getElementById('teacherSelect').value;
+                const ySel = document.getElementById('yearSelect').value;
+                const tmSel = document.getElementById('termSelect').value;
+
+                allEvals = live.evalData;
+                allTeachers = live.teacherData || allTeachers;
+                populateTeacherDropdown();
+                populateYearDropdown();
+
+                // คืนค่าตัวเลือกเดิม (ถ้ายังมีอยู่)
+                const has = (sel, v) => [...document.getElementById(sel).options].some(o => o.value === v);
+                document.getElementById('teacherSelect').value = has('teacherSelect', tSel) ? tSel : 'all';
+                document.getElementById('yearSelect').value = has('yearSelect', ySel) ? ySel : 'all';
+                document.getElementById('termSelect').value = tmSel;
+                currentYear = document.getElementById('yearSelect').value;
+
+                setAssessorFilter(currentAssessorFilter);
+            } catch (e) { /* เงียบ: ใช้ข้อมูล CDN ที่โชว์อยู่ */ }
         }
 
         // ฟังก์ชันจัดการ Loader แบบย่อย (Local)
