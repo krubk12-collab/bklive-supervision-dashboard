@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard ผู้บริหาร · ผลการนิเทศการสอน</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{font-family:'Sarabun',sans-serif}
+  body{background:#f1f5f9}
+  .hm-cell{width:34px;height:30px;font-size:11px}
+  @media print{.no-print{display:none!important}.print-block{display:block!important}}
+</style>
+</head>
+<body class="p-2 sm:p-6 min-h-screen text-gray-800">
+
+<!-- ╔══ หน้าล็อกอิน ══╗ -->
+<div id="login" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-800 to-blue-900 p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl"><i class="fa-solid fa-user-shield"></i></div>
+    <h1 class="text-xl font-bold text-gray-800">Dashboard ผู้บริหาร</h1>
+    <p class="text-sm text-gray-500 mb-6">ผลการนิเทศการสอน (เฉพาะ ผอ./รอง)</p>
+    <input type="password" id="pw" placeholder="รหัสผ่าน" class="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 text-center mb-3" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" class="text-red-500 text-sm mb-3 hidden"></div>
+    <button onclick="doLogin()" id="loginBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">เข้าสู่ระบบ</button>
+  </div>
+</div>
+
+<!-- ╔══ แอป ══╗ -->
+<div id="app" class="max-w-6xl mx-auto hidden">
+
+  <!-- header + filters -->
+  <div class="mb-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col lg:flex-row justify-between items-center gap-4 no-print">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-chart-pie text-blue-600 mr-2"></i>Dashboard ผู้บริหาร · ผลการนิเทศ</h1>
+      <p class="text-gray-500 mt-1">โรงเรียนชุมชนวัดบางโค (PACAKIDs Model)</p>
+    </div>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <select id="fYear" onchange="applyFilter()" class="bg-blue-50 border border-blue-300 text-blue-800 text-sm rounded-xl p-2.5 font-bold cursor-pointer"></select>
+      <select id="fTerm" onchange="applyFilter()" class="bg-blue-50 border border-blue-300 text-blue-800 text-sm rounded-xl p-2.5 font-bold cursor-pointer">
+        <option value="all">ทุกภาคเรียน</option><option value="1">ภาคเรียนที่ 1</option><option value="2">ภาคเรียนที่ 2</option>
+      </select>
+      <select id="fDept" onchange="applyFilter()" class="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-xl p-2.5 cursor-pointer"><option value="all">ทุกกลุ่มสาระฯ</option></select>
+      <select id="fRole" onchange="applyFilter()" class="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-xl p-2.5 cursor-pointer">
+        <option value="all">ผู้นิเทศทั้งหมด</option><option value="director">ผอ.</option><option value="deputy">รอง ผอ.</option><option value="peer">ครูนิเทศครู</option><option value="other">ภายนอก/อื่นๆ</option>
+      </select>
+      <button onclick="logout()" class="bg-gray-200 text-gray-700 text-sm rounded-xl px-3 py-2.5 hover:bg-gray-300"><i class="fa-solid fa-right-from-bracket mr-1"></i>ออก</button>
+    </div>
+  </div>
+
+  <!-- summary cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-blue-500"><p class="text-xs text-gray-500 font-semibold">ครูที่ถูกนิเทศ</p><p class="text-3xl font-bold" id="cTeachers">0</p></div>
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-indigo-500"><p class="text-xs text-gray-500 font-semibold">จำนวนครั้งนิเทศ</p><p class="text-3xl font-bold" id="cEvals">0</p></div>
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500"><p class="text-xs text-gray-500 font-semibold">คะแนนเฉลี่ยรวม</p><p class="text-3xl font-bold" id="cAvg">0<span class="text-sm text-gray-400 font-normal">/80</span></p></div>
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-purple-500"><p class="text-xs text-gray-500 font-semibold">ระดับคุณภาพเฉลี่ย</p><p class="text-2xl font-bold text-purple-600" id="cQuality">-</p></div>
+  </div>
+
+  <!-- per-item analysis + weak points -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
+      <h3 class="font-bold mb-1"><i class="fa-solid fa-list-check text-blue-500 mr-2"></i>คะแนนเฉลี่ยราย 16 ข้อ (ตอนที่ 3)</h3>
+      <p class="text-xs text-gray-500 mb-3">เต็มข้อละ 5 · แท่งสีแดง = จุดอ่อนร่วม (เฉลี่ย &lt; 3.5)</p>
+      <div style="height:430px"><canvas id="itemChart"></canvas></div>
+    </div>
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+      <h3 class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation text-red-500 mr-2"></i>5 ข้อที่ควรพัฒนาเร่งด่วน</h3>
+      <p class="text-xs text-gray-500 mb-3">เรียงจากคะแนนเฉลี่ยต่ำสุด</p>
+      <div id="weakList" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- teacher table -->
+  <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold"><i class="fa-solid fa-users text-blue-500 mr-2"></i>รายชื่อครู — คลิกเพื่อดูรายละเอียดเต็ม</h3>
+      <input id="search" oninput="renderTeacherTable()" placeholder="🔍 ค้นหาชื่อครู" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none">
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600"><tr>
+          <th class="p-2 text-left">ครู</th><th class="p-2">กลุ่มสาระฯ</th><th class="p-2">ครั้ง</th>
+          <th class="p-2">เฉลี่ย/80</th><th class="p-2">ระดับ</th><th class="p-2">ผู้นิเทศ</th><th class="p-2"></th>
+        </tr></thead>
+        <tbody id="teacherTbody" class="divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ╔══ Modal รายคน ══╗ -->
+<div id="detail" class="fixed inset-0 z-40 bg-black/50 hidden overflow-y-auto p-2 sm:p-6">
+  <div class="bg-white rounded-2xl max-w-4xl mx-auto my-4 shadow-2xl">
+    <div class="flex justify-between items-center p-5 border-b sticky top-0 bg-white rounded-t-2xl no-print z-10">
+      <h2 class="text-xl font-bold" id="dName">-</h2>
+      <div class="flex gap-2">
+        <button onclick="printDetail()" class="bg-gray-800 text-white text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-print mr-1"></i>พิมพ์</button>
+        <button onclick="closeDetail()" class="bg-gray-200 text-gray-700 text-sm px-3 py-2 rounded-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div id="dBody" class="p-5 sm:p-6 space-y-5"></div>
+  </div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwMWJrqTBRVngn-7THkrptWjbBC803G4kdGaPpRRL_7DEMObj7v0G4JOCAqekTocnVQCA/exec';
+
+const PARTS = [
+  { n:1, name:'จุดประสงค์', max:10, ids:['q1_1','q1_2'] },
+  { n:2, name:'เนื้อหา', max:15, ids:['q2_1','q2_2','q2_3'] },
+  { n:3, name:'กิจกรรม', max:35, ids:['q3_1','q3_2','q3_3','q3_4','q3_5','q3_6','q3_7'] },
+  { n:4, name:'สื่อ', max:10, ids:['q4_1','q4_2'] },
+  { n:5, name:'วัดผล', max:10, ids:['q5_1','q5_2'] },
+];
+const ITEMS = [
+  { id:'q1_1', text:'1.1 ออกแบบหน่วยการเรียนรู้สอดคล้องกับมาตรฐาน/ตัวชี้วัด' },
+  { id:'q1_2', text:'1.2 วางแผนการจัดการเรียนรู้เน้น Active Learning' },
+  { id:'q2_1', text:'2.1 เนื้อหาสอดคล้องกับจุดประสงค์/เป้าหมาย' },
+  { id:'q2_2', text:'2.2 ส่งเสริมการเรียนรู้ด้วยตนเอง ถูกต้องตามหลักวิชาการ' },
+  { id:'q2_3', text:'2.3 จัดลำดับเนื้อหา/ขั้นตอนเหมาะกับวัยผู้เรียน' },
+  { id:'q3_1', text:'3.1 ตรวจสอบความรู้เดิมของผู้เรียน' },
+  { id:'q3_2', text:'3.2 เชื่อมโยงความรู้กับสถานการณ์/คำถามที่ท้าทาย' },
+  { id:'q3_3', text:'3.3 ปฏิสัมพันธ์ แลกเปลี่ยน ปฏิบัติจริง' },
+  { id:'q3_4', text:'3.4 กิจกรรมหลากหลาย ตอบสนองความต่างของผู้เรียน' },
+  { id:'q3_5', text:'3.5 ครูเป็นผู้ชี้แนะ ชวนคิด ให้ผู้เรียนสร้างความรู้เอง' },
+  { id:'q3_6', text:'3.6 ใช้คำถามกระตุ้นคิดวิเคราะห์/สร้างสรรค์' },
+  { id:'q3_7', text:'3.7 ส่งเสริมทักษะการนำเสนอ/อภิปราย' },
+  { id:'q4_1', text:'4.1 เลือกใช้สื่อหลากหลาย กระตุ้นการคิดวิเคราะห์' },
+  { id:'q4_2', text:'4.2 มีสื่อทบทวนบทเรียน/สนับสนุน Active Learning' },
+  { id:'q5_1', text:'5.1 ผู้เรียนมีส่วนร่วมในการวัดและประเมินผล' },
+  { id:'q5_2', text:'5.2 ประเมินหลากหลาย เน้นตามสภาพจริง' },
+];
+const ITEM_TEXT = {}; ITEMS.forEach(i => ITEM_TEXT[i.id] = i.text);
+
+let KEY = '', ALL = [], TEACHERS = [], VIEW = [];
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function normYear(v){const m=String(v==null?'':v).match(/25\d{2}/);return m?m[0]:String(v==null?'':v).trim();}
+function normTerm(v){const m=String(v==null?'':v).match(/[12]/);return m?m[0]:String(v==null?'':v).trim();}
+function fmtDate(s){const d=new Date(s);return isNaN(d)?String(s||'-'):`${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()+543}`;}
+function qualityOf(avg){if(avg>=65)return['ดีเยี่ยม','text-blue-600'];if(avg>=49)return['ดีมาก','text-emerald-600'];if(avg>=33)return['ดี','text-green-600'];if(avg>=17)return['พอใช้','text-orange-500'];return['ควรปรับปรุง','text-red-500'];}
+function isTeacher(name){return TEACHERS.some(t=>name&&(name.includes(t.first_name)||name.includes(t.last_name))&&!name.includes('พนมพร')&&!name.includes('ศิริวรรณ'));}
+function roleOf(name){name=name||'';if(name.includes('พนมพร')||name.includes('ผู้อำนวยการ')&&!name.includes('รอง'))return'director';if(name.includes('ศิริวรรณ')||name.includes('รองผู้อำนวยการ'))return'deputy';if(isTeacher(name))return'peer';return'other';}
+const ROLE_TH={director:'ผอ.',deputy:'รองฯ',peer:'เพื่อนครู',other:'ภายนอก'};
+const ROLE_COLOR={director:'#eab308',deputy:'#3b82f6',peer:'#10b981',other:'#9ca3af'};
+
+// ── login ──
+async function doLogin(){
+  const pw=document.getElementById('pw').value.trim();
+  const err=document.getElementById('loginErr'), btn=document.getElementById('loginBtn');
+  if(!pw){err.textContent='กรุณาใส่รหัสผ่าน';err.classList.remove('hidden');return;}
+  btn.disabled=true;btn.textContent='กำลังตรวจสอบ...';err.classList.add('hidden');
+  try{
+    const r=await fetch(GAS_URL+'?action=execData&key='+encodeURIComponent(pw));
+    const j=await r.json();
+    if(!j.ok){err.textContent='รหัสผ่านไม่ถูกต้อง';err.classList.remove('hidden');btn.disabled=false;btn.textContent='เข้าสู่ระบบ';return;}
+    KEY=pw; sessionStorage.setItem('execKey',pw);
+    ALL=j.evalData||[]; TEACHERS=j.teacherData||[];
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    initFilters(); applyFilter();
+  }catch(e){err.textContent='เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง';err.classList.remove('hidden');btn.disabled=false;btn.textContent='เข้าสู่ระบบ';}
+}
+function logout(){sessionStorage.removeItem('execKey');location.reload();}
+
+function initFilters(){
+  const years=[...new Set(ALL.map(e=>normYear(e.year)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  if(!years.includes('2569'))years.unshift('2569');
+  document.getElementById('fYear').innerHTML='<option value="all">ทุกปีการศึกษา</option>'+years.map(y=>`<option value="${y}">ปีการศึกษา ${y}</option>`).join('');
+  document.getElementById('fYear').value='2569';
+  document.getElementById('fTerm').value='1';
+  const depts=[...new Set(ALL.map(e=>e.department).filter(Boolean))].sort();
+  document.getElementById('fDept').innerHTML='<option value="all">ทุกกลุ่มสาระฯ</option>'+depts.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+}
+
+function applyFilter(){
+  const y=document.getElementById('fYear').value, t=document.getElementById('fTerm').value,
+        d=document.getElementById('fDept').value, role=document.getElementById('fRole').value;
+  VIEW=ALL.filter(e=>{
+    if(y!=='all'&&normYear(e.year)!==y)return false;
+    if(t!=='all'&&normTerm(e.term)!==t)return false;
+    if(d!=='all'&&e.department!==d)return false;
+    if(role!=='all'&&roleOf(e.assessorName)!==role)return false;
+    return true;
+  });
+  renderCards(); renderItemChart(); renderWeak(); renderTeacherTable();
+}
+
+function renderCards(){
+  const teacherSet=new Set(VIEW.map(e=>e.evaluateeName));
+  document.getElementById('cTeachers').textContent=teacherSet.size;
+  document.getElementById('cEvals').textContent=VIEW.length;
+  const avg=VIEW.length?VIEW.reduce((s,e)=>s+Number(e.totalScore),0)/VIEW.length:0;
+  document.getElementById('cAvg').innerHTML=avg.toFixed(1)+'<span class="text-sm text-gray-400 font-normal">/80</span>';
+  const [q,c]=qualityOf(avg);
+  const el=document.getElementById('cQuality');el.textContent=VIEW.length?q:'-';el.className='text-2xl font-bold '+c;
+}
+
+function itemAverages(list){
+  const avg={};
+  ITEMS.forEach(it=>{
+    const vals=list.map(e=>e.items&&e.items[it.id]).filter(v=>v>0);
+    avg[it.id]=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+  });
+  return avg;
+}
+
+let itemChartObj=null;
+function renderItemChart(){
+  const avg=itemAverages(VIEW);
+  const labels=ITEMS.map(i=>i.id.replace('q','').replace('_','.'));
+  const data=ITEMS.map(i=>+avg[i.id].toFixed(2));
+  const colors=data.map(v=>v===0?'#e5e7eb':v<3.5?'#ef4444':v<4.2?'#f59e0b':'#10b981');
+  if(itemChartObj)itemChartObj.destroy();
+  itemChartObj=new Chart(document.getElementById('itemChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:colors,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{x:{min:0,max:5,ticks:{stepSize:1}},y:{ticks:{font:{size:11}}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:(c)=>ITEM_TEXT[ITEMS[c[0].dataIndex].id],
+        label:(c)=>'เฉลี่ย '+c.parsed.x.toFixed(2)+' / 5'
+      }}}}
+  });
+}
+
+function renderWeak(){
+  const avg=itemAverages(VIEW);
+  const sorted=ITEMS.map(i=>({id:i.id,text:i.text,v:avg[i.id]})).filter(x=>x.v>0).sort((a,b)=>a.v-b.v).slice(0,5);
+  const box=document.getElementById('weakList');
+  if(!sorted.length){box.innerHTML='<p class="text-gray-400 text-sm">ไม่มีข้อมูล</p>';return;}
+  box.innerHTML=sorted.map(x=>{
+    const c=x.v<3.5?'bg-red-50 border-red-200 text-red-700':x.v<4.2?'bg-amber-50 border-amber-200 text-amber-700':'bg-emerald-50 border-emerald-200 text-emerald-700';
+    return `<div class="border rounded-lg p-2 ${c}"><div class="flex justify-between font-bold text-sm"><span>ข้อ ${x.id.replace('q','').replace('_','.')}</span><span>${x.v.toFixed(2)}</span></div><div class="text-xs leading-snug mt-0.5">${esc(x.text)}</div></div>`;
+  }).join('');
+}
+
+function teacherGroups(list){
+  const g={};
+  list.forEach(e=>{(g[e.evaluateeName]=g[e.evaluateeName]||[]).push(e);});
+  return g;
+}
+function renderTeacherTable(){
+  const g=teacherGroups(VIEW);
+  const term=(document.getElementById('search').value||'').trim();
+  const tb=document.getElementById('teacherTbody');
+  const names=Object.keys(g).filter(n=>!term||n.includes(term)).sort((a,b)=>a.localeCompare(b,'th'));
+  if(!names.length){tb.innerHTML='<tr><td colspan="7" class="p-4 text-center text-gray-400">ไม่มีข้อมูลตามตัวกรอง</td></tr>';return;}
+  tb.innerHTML=names.map(n=>{
+    const recs=g[n];
+    const avg=recs.reduce((s,e)=>s+Number(e.totalScore),0)/recs.length;
+    const [q,c]=qualityOf(avg);
+    const roles=[...new Set(recs.map(e=>roleOf(e.assessorName)))];
+    const badges=roles.map(r=>`<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1" style="background:${ROLE_COLOR[r]}22;color:${ROLE_COLOR[r]}">${ROLE_TH[r]}</span>`).join('');
+    return `<tr class="hover:bg-blue-50 cursor-pointer" onclick="openDetail('${esc(n).replace(/'/g,"\\'")}')">
+      <td class="p-2 font-semibold">${esc(n)}</td>
+      <td class="p-2 text-center text-gray-500 text-xs">${esc(recs[0].department||'-')}</td>
+      <td class="p-2 text-center">${recs.length}</td>
+      <td class="p-2 text-center font-bold">${avg.toFixed(1)}</td>
+      <td class="p-2 text-center font-bold ${c}">${q}</td>
+      <td class="p-2 text-center whitespace-nowrap">${badges}</td>
+      <td class="p-2 text-center text-blue-500"><i class="fa-solid fa-chevron-right"></i></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── detail ──
+function schoolPartAvg(){
+  const a={};PARTS.forEach(p=>{const k='p'+p.n;const vals=VIEW.map(e=>e.parts&&e.parts[k]).filter(v=>v!=null);a[k]=vals.length?vals.reduce((x,y)=>x+y,0)/vals.length:0;});return a;
+}
+let radarObjs=[];
+function openDetail(name){
+  const recs=teacherGroups(VIEW)[name]||[];
+  document.getElementById('dName').textContent=name;
+  const schoolAvg=schoolPartAvg();
+  radarObjs.forEach(o=>o&&o.destroy());radarObjs=[];
+  const body=document.getElementById('dBody');
+  body.innerHTML=recs.map((e,idx)=>recordHtml(e,idx)).join('<hr class="my-6 border-dashed">');
+  document.getElementById('detail').classList.remove('hidden');
+  document.body.style.overflow='hidden';
+  // radars + signatures
+  recs.forEach((e,idx)=>{
+    const ctx=document.getElementById('radar'+idx);
+    if(ctx){radarObjs.push(new Chart(ctx,{type:'radar',
+      data:{labels:PARTS.map(p=>p.name),datasets:[
+        {label:'ครูคนนี้',data:PARTS.map(p=>Math.round((e.parts['p'+p.n]/p.max)*100)),backgroundColor:'rgba(37,99,235,.18)',borderColor:'#2563eb',borderWidth:2},
+        {label:'เฉลี่ยรร.',data:PARTS.map(p=>Math.round((schoolAvg['p'+p.n]/p.max)*100)),backgroundColor:'rgba(156,163,175,.12)',borderColor:'#9ca3af',borderWidth:2,borderDash:[5,4]}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:9}}}},plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+    }));}
+    loadSig(e.rowId, 'sig'+idx);
+  });
+}
+function recordHtml(e,idx){
+  const [q,c]=qualityOf(Number(e.totalScore));
+  const itemsRows=ITEMS.map(it=>{
+    const v=e.items?e.items[it.id]:0;
+    const cellColor=v>=4?'text-emerald-600':v===3?'text-amber-600':v>0?'text-red-600':'text-gray-300';
+    return `<tr class="border-b border-gray-100"><td class="py-1.5 pr-2">${esc(it.text)}</td><td class="py-1.5 text-center font-bold ${cellColor} w-12">${v||'-'}</td></tr>`;
+  }).join('');
+  return `<div class="record">
+    <div class="bg-blue-50 rounded-xl p-4 mb-3 text-sm grid grid-cols-2 sm:grid-cols-3 gap-y-1 gap-x-4">
+      <div><span class="text-gray-500">ครั้งที่:</span> <b>${idx+1}</b></div>
+      <div><span class="text-gray-500">วันที่:</span> <b>${fmtDate(e.evalDate)}</b></div>
+      <div><span class="text-gray-500">ภาค/ปี:</span> <b>${esc(e.term)}/${esc(e.year)}</b></div>
+      <div><span class="text-gray-500">กลุ่มสาระฯ:</span> <b>${esc(e.department||'-')}</b></div>
+      <div><span class="text-gray-500">ชั้น:</span> <b>${esc(e.className||'-')}</b></div>
+      <div><span class="text-gray-500">วิชา:</span> <b>${esc(e.subjectName||'-')}</b></div>
+      <div class="col-span-2 sm:col-span-3 border-t border-blue-200 pt-1 mt-1"><span class="text-gray-500">ผู้นิเทศ:</span> <b>${esc(e.assessorName||'-')}</b> <span class="text-gray-400">(${esc(e.assessorPosition||'')})</span></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
+        <h4 class="font-bold text-sm mb-1">ตอนที่ 3 · คะแนนราย 16 ข้อ</h4>
+        <table class="w-full text-xs"><tbody>${itemsRows}</tbody>
+        <tfoot><tr class="border-t-2"><td class="py-2 font-bold text-right pr-2">รวม</td><td class="py-2 text-center font-bold text-blue-600">${e.totalScore}/80</td></tr></tfoot></table>
+        <div class="mt-1 text-sm">ระดับคุณภาพ: <b class="${c}">${q}</b></div>
+      </div>
+      <div>
+        <h4 class="font-bold text-sm mb-1">ภาพรวม 5 ด้าน (เทียบเฉลี่ยโรงเรียน)</h4>
+        <div style="height:230px"><canvas id="radar${idx}"></canvas></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+      <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-3"><div class="font-bold text-emerald-700 text-sm mb-1"><i class="fa-solid fa-thumbs-up mr-1"></i>จุดเด่น (ตอนที่ 5)</div><div class="text-sm whitespace-pre-wrap">${esc(e.strengths)||'<span class=\"text-gray-400\">-</span>'}</div></div>
+      <div class="bg-amber-50 border border-amber-100 rounded-xl p-3"><div class="font-bold text-amber-700 text-sm mb-1"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>จุดควรพัฒนา</div><div class="text-sm whitespace-pre-wrap">${esc(e.improvements)||'<span class=\"text-gray-400\">-</span>'}</div></div>
+    </div>
+    <div class="mt-4">
+      <div class="font-bold text-sm mb-1"><i class="fa-solid fa-signature mr-1 text-blue-500"></i>ลายเซ็นผู้นิเทศ</div>
+      <div id="sig${idx}" class="border border-gray-200 rounded-lg p-2 inline-block bg-white min-w-[220px] min-h-[90px] flex items-center justify-center text-gray-300 text-sm">กำลังโหลด...</div>
+    </div>
+  </div>`;
+}
+async function loadSig(rowId,elId){
+  try{
+    const r=await fetch(GAS_URL+'?action=sig&key='+encodeURIComponent(KEY)+'&rowId='+rowId);
+    const j=await r.json();
+    const el=document.getElementById(elId);if(!el)return;
+    if(j.ok&&j.signature){
+      const src=j.signature.startsWith('data:')?j.signature:('data:image/png;base64,'+j.signature);
+      el.innerHTML='<img src="'+src+'" style="max-height:120px" alt="ลายเซ็น">';
+    }else{el.textContent='— ไม่มีลายเซ็นในระบบ —';}
+  }catch(e){const el=document.getElementById(elId);if(el)el.textContent='โหลดลายเซ็นไม่ได้';}
+}
+function closeDetail(){document.getElementById('detail').classList.add('hidden');document.body.style.overflow='';}
+function printDetail(){window.print();}
+document.getElementById('detail').addEventListener('click',e=>{if(e.target.id==='detail')closeDetail();});
+
+// auto-login ถ้ามี key ใน session
+window.addEventListener('DOMContentLoaded',()=>{
+  const k=sessionStorage.getItem('execKey');
+  if(k){document.getElementById('pw').value=k;doLogin();}
+});
+</script>
+</body>
+</html>
