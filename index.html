@@ -226,8 +226,8 @@
         let trendChartObj = null;
 
         let currentAssessorFilter = 'all';
-        let currentYear = 'all';    // ปีการศึกษาที่เลือก (default ทุกปี — โชว์รวมเหมือนเดิม แล้วคลิกเลือกปีได้)
-        let currentTerm = 'all';    // ภาคเรียนที่เลือก ('all'/'1'/'2')
+        let currentYear = '2569';   // ปีการศึกษาที่เลือก (default = ปีล่าสุด) — เปลี่ยนเป็น 'all'/ปีอื่นได้
+        let currentTerm = '1';      // ภาคเรียนที่เลือก (default = เทอมล่าสุด) — 'all'/'1'/'2'
 
         // 🌟 ดึงข้อมูลครั้งแรกเมื่อโหลดหน้าเว็บ
         async function fetchData() {
@@ -349,11 +349,15 @@
             }
         }
 
+        // ── normalize ปี/เทอม (กันครูกรอกในฟอร์มไม่ตรงรูปแบบ เช่น "ปี 2569", "ภาคเรียนที่ 1") ──
+        function normYear(v) { const m = String(v == null ? '' : v).match(/25\d{2}/); return m ? m[0] : String(v == null ? '' : v).trim(); }
+        function normTerm(v) { const m = String(v == null ? '' : v).match(/[12]/); return m ? m[0] : String(v == null ? '' : v).trim(); }
+
         // ── ฐานข้อมูลที่กรองตามปี/เทอมแล้ว (ตัวกรองอื่นต่อยอดจากนี้) ──
         function yearTermBase() {
             return allEvals.filter(e => {
-                if (currentYear !== 'all' && String(e.year || '').trim() !== currentYear) return false;
-                if (currentTerm !== 'all' && String(e.term || '').trim() !== currentTerm) return false;
+                if (currentYear !== 'all' && normYear(e.year) !== currentYear) return false;
+                if (currentTerm !== 'all' && normTerm(e.term) !== currentTerm) return false;
                 return true;
             });
         }
@@ -368,7 +372,7 @@
         // เติมตัวเลือกปีจากข้อมูลจริง (เรียงปีล่าสุดก่อน) — การันตีมี 2569
         function populateYearDropdown() {
             const sel = document.getElementById('yearSelect');
-            const years = [...new Set(allEvals.map(e => String(e.year || '').trim()).filter(Boolean))]
+            const years = [...new Set(allEvals.map(e => normYear(e.year)).filter(Boolean))]
                 .sort((a, b) => b.localeCompare(a));
             if (!years.includes('2569')) years.unshift('2569');
             sel.innerHTML = '<option value="all">ทุกปีการศึกษา</option>'
